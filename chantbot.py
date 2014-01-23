@@ -2,6 +2,8 @@ import ConfigParser
 from twitter import Twitter, OAuth
 import time
 import re
+import math
+import itertools
 
 config= ConfigParser.ConfigParser()
 config.read('config.cfg')
@@ -29,25 +31,85 @@ def hash_line(line):
 
     return line
 
-## testing with some odyssey text
 
-sleep_time_line = 10
-sleep_time_burst = 30
-sleep_time_chant = 60
+# number of bursts per chant
+num_bursts = int(config.get('Schedule','bursts'))
 
+class Chant:
 
-with open(source) as f:
+    lines = []
+    bursts = []
+
+    def __init__(self,text):
+        self.lines = text.split("\n")
+
+        # lines per burst
+        lpb = int(math.ceil(float(len(self.lines)) / num_bursts))
+
+        self.bursts = [self.lines[i:i+lpb] for i 
+                       in xrange(0,len(self.lines),lpb)]
+        
+
+def prepare_chants(source):
+    """
+    prepare_chants(source) -> list of list of strings
+
+    Read in the text from the source file and
+    return a list whose elements are 
+    """
+
+    chants = []
+
+    f = open(source)
+
+    text = ""
+    
     for line in f:
         if re.match(r'^\s*$',line) is not None:
-            time.sleep(sleep_time_burst)
-            pass
-
+            if text is not "":
+                chants.append(Chant(text))
+                text = ""
         else:
-            try:
-                status = hash_line(line)
-                t.statuses.update(status=status)
-                print(status)
-                time.sleep(sleep_time_line)
-            except:
-                pass
+            # add hashtags where necessary
+            text += hash_line(line)
 
+    f.close()
+
+    return chants
+
+chants = prepare_chants(source)
+
+# which chant to start with 
+chant_start = 0
+
+# time between tweets in a burst
+beat = int(config.get('Schedule','beat'))
+
+# total duration of a chant
+duration = int(config.get('Schedule','duration'))
+
+
+def chant(chant):
+
+    interval = duration / (len(chant.bursts) - 1)
+
+    rest = interval - len(chant.lines) * beat
+    print "rest: %d" % rest
+
+    for burst in chant.bursts:
+        for line in burst:
+            print line
+            time.sleep(beat)
+
+        time.sleep(rest)
+
+
+# burn in to appropriate starting chant
+#for i in range(chant_start):
+#    chants.next()
+
+# chants = itertools.cycle(chants)
+print(chants[0].lines)
+print(chants[1].lines)
+print(chants[2].lines)
+chant(chants[0])
