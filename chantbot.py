@@ -44,6 +44,9 @@ class Chant:
     def __init__(self,text):
         self.lines = text.split("\n")
 
+        if self.lines[-1] is "":
+            self.lines = self.lines[0:-1]
+
         # lines per burst
         lpb = int(math.ceil(float(len(self.lines)) / num_bursts))
 
