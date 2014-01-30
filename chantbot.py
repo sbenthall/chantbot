@@ -65,7 +65,7 @@ def prepare_chants(source):
     f = open(source)
 
     text = ""
-    
+
     for line in f:
         if re.match(r'^\s*$',line) is not None:
             if text is not "":
