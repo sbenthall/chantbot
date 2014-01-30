@@ -17,7 +17,6 @@ oauth = OAuth(config.get('OAuth','accesstoken'),
 
 t = Twitter(auth=oauth)
 
-
 source = config.get('Content','source')
 
 keywords = config.get('Content','keywords').split(',')
@@ -50,7 +49,7 @@ class Chant:
 
         self.bursts = [self.lines[i:i+lpb] for i 
                        in xrange(0,len(self.lines),lpb)]
-        
+
 
 def prepare_chants(source):
     """
