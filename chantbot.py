@@ -1,6 +1,8 @@
 import ConfigParser
 from twitter import Twitter, OAuth
 import time
+from datetime import datetime
+from datetime import time as dtime
 import re
 import math
 import itertools
@@ -80,7 +82,7 @@ def prepare_chants(source):
 chants = prepare_chants(source)
 
 # which chant to start with 
-chant_start = 0
+chantburn = int(config.get('Schedule','chantburn'))
 
 # time between tweets in a burst
 beat = int(config.get('Schedule','beat'))
@@ -88,28 +90,45 @@ beat = int(config.get('Schedule','beat'))
 # total duration of a chant
 duration = int(config.get('Schedule','duration'))
 
+def compute_start():
+    start_time = dtime(*time.strptime(config.get('Schedule',
+                                                 'starttime'),"%H:%M")[3:5])
+    now = datetime.now()
 
-def chant(chant):
+    if now.time() < start_time:
+        start_day = now
+    else:
+        tomorrow = tomorrow = datetime.fromordinal(now.toordinal() + 1)
+        start_day = tomorrow
+
+    start = datetime.combine(start_day,start_time)
+    return start
+
+def do_chant(chant):
 
     interval = duration / (len(chant.bursts) - 1)
 
     rest = interval - len(chant.lines) * beat
+    print "interval: %d" % interval
     print "rest: %d" % rest
 
     for burst in chant.bursts:
         for line in burst:
-            print line
+            t.statuses.update(status=line)
             time.sleep(beat)
 
         time.sleep(rest)
 
 
-# burn in to appropriate starting chant
-#for i in range(chant_start):
-#    chants.next()
+chants = itertools.cycle(chants)
 
-# chants = itertools.cycle(chants)
-print(chants[0].lines)
-print(chants[1].lines)
-print(chants[2].lines)
-chant(chants[0])
+# burn in to appropriate starting chant
+for i in range(chantburn):
+    chants.next()
+
+for chant in chants:
+    start = compute_start()
+    wait = start - datetime.now()
+    print "Waiting to start for %s" % wait
+    time.sleep(wait.total_seconds())
+    do_chant(chant)
