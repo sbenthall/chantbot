@@ -44,7 +44,7 @@ source = config.get('Content','source')
 
 keywords = config.get('Content','keywords').split(',')
 
-kw_re = [re.compile(r'\b%s\b' % kw) for kw in keywords]
+kw_re = [re.compile(r'\b%s\b' % kw,flags=re.I) for kw in keywords]
 
 def hash_word(match):
     return '#' + match.group()
@@ -54,7 +54,6 @@ def hash_line(line):
         line = re.sub(kr, hash_word, line)
 
     return line
-
 
 # number of bursts per chant
 num_bursts = int(config.get('Schedule','bursts'))
@@ -75,7 +74,6 @@ class Chant:
 
         self.bursts = [self.lines[i:i+lpb] for i 
                        in xrange(0,len(self.lines),lpb)]
-
 
 def prepare_chants(source):
     """
