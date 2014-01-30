@@ -6,9 +6,13 @@ from datetime import time as dtime
 import re
 import math
 import itertools
+import logging
+import os
 
 config= ConfigParser.ConfigParser()
 config.read('config.cfg')
+
+# Setup Twitter client
 
 oauth = OAuth(config.get('OAuth','accesstoken'),
               config.get('OAuth','accesstokenkey'),
@@ -16,6 +20,25 @@ oauth = OAuth(config.get('OAuth','accesstoken'),
               config.get('OAuth','consumersecret'))
 
 t = Twitter(auth=oauth)
+
+# Setup Logging
+
+logpath = config.get('Logging','logpath')
+
+if not os.path.exists(logpath):
+    os.makedirs(logpath)
+
+##cruft?
+logger = logging.getLogger('log')
+#todo: use date/time as the log file name
+hdlr = logging.FileHandler(os.path.join(logpath,
+                                        "%s.log" % datetime.now().isoformat()))
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+hdlr.setFormatter(formatter)
+logger.addHandler(hdlr)
+logger.setLevel(logging.DEBUG)
+
+# Setup chants
 
 source = config.get('Content','source')
 
@@ -83,6 +106,8 @@ def prepare_chants(source):
 
 chants = prepare_chants(source)
 
+# Begin chanting
+
 # which chant to start with 
 chantburn = int(config.get('Schedule','chantburn'))
 
@@ -111,26 +136,32 @@ def do_chant(chant):
     interval = duration / (len(chant.bursts) - 1)
 
     rest = interval - len(chant.lines) * beat
-    print "interval: %d" % interval
-    print "rest: %d" % rest
+
+    logger.debug("Interval: %d. Rest: %d." % (interval,rest))
 
     for burst in chant.bursts:
         for line in burst:
             t.statuses.update(status=line)
+            logger.debug(line)
             time.sleep(beat)
 
+        logger.debug("(rest)")
         time.sleep(rest)
-
 
 chants = itertools.cycle(chants)
 
 # burn in to appropriate starting chant
 for i in range(chantburn):
+    logger.debug("Buring in for %d." % chantburn)
     chants.next()
 
+index = chantburn
+
 for chant in chants:
+    logger.debug("Computing start time")
     start = compute_start()
     wait = start - datetime.now()
-    print "Waiting to start for %s" % wait
+    logger.debug("Waiting for %s for next chant." % wait)
     time.sleep(wait.total_seconds())
+    logger.debug("Beginning chant index %d" % index)
     do_chant(chant)
