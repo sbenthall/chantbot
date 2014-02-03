@@ -62,6 +62,8 @@ class Chant:
 
     lines = []
     bursts = []
+    # lines per burst
+    lpb = 0
 
     def __init__(self,text):
         self.lines = text.split("\n")
@@ -70,14 +72,17 @@ class Chant:
             self.lines = self.lines[0:-1]
 
         # lines per burst
-        lpb = int(math.ceil(float(len(self.lines)) / num_bursts))
+        self.lpb = int(math.ceil(float(len(self.lines)) / num_bursts))
 
-        self.bursts = [self.lines[i:i+lpb] for i 
-                       in xrange(0,len(self.lines),lpb)]
+        self.bursts = [self.lines[i:i+self.lpb] for i 
+                       in xrange(0,len(self.lines),self.lpb)]
+
+        if len(self.bursts) < num_bursts:
+            self.bursts.append([])
 
 def prepare_chants(source):
     """
-    prepare_chants(source) -> list of list of strings
+    prepare_chants(source) -> list of Chants
 
     Read in the text from the source file and
     return a list whose elements are 
@@ -132,8 +137,7 @@ def compute_start():
 def do_chant(chant):
 
     interval = duration / (len(chant.bursts) - 1)
-
-    rest = interval - len(chant.lines) * beat
+    rest = interval - chant.lpb * beat
 
     logger.debug("Interval: %d. Rest: %d." % (interval,rest))
 
@@ -150,7 +154,7 @@ chants = itertools.cycle(chants)
 
 # burn in to appropriate starting chant
 for i in range(chantburn):
-    logger.debug("Buring in for %d." % chantburn)
+    logger.debug("Burning in for %d." % chantburn)
     chants.next()
 
 index = chantburn
