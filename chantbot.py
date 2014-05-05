@@ -66,8 +66,6 @@ def which_chant(chants):
 def main(argv=None):
     t = get_twitter_client()
 
-    import pdb;pdb.set_trace()
-
     argv = sys.argv
 
     #index of the burst
