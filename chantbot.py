@@ -1,25 +1,27 @@
 import ConfigParser
 from twitter import Twitter, OAuth
 import time
-from datetime import datetime
+from datetime import datetime, date
 from datetime import time as dtime
-import re
-import math
 import itertools
 import logging
 import os
+from parse import *
+import sys
 
 config= ConfigParser.ConfigParser()
 config.read('config.cfg')
 
 # Setup Twitter client
+def get_twitter_client():
+    oauth = OAuth(config.get('OAuth','accesstoken'),
+                  config.get('OAuth','accesstokenkey'),
+                  config.get('OAuth','consumerkey'),
+                  config.get('OAuth','consumersecret'))
 
-oauth = OAuth(config.get('OAuth','accesstoken'),
-              config.get('OAuth','accesstokenkey'),
-              config.get('OAuth','consumerkey'),
-              config.get('OAuth','consumersecret'))
+    t = Twitter(auth=oauth)
 
-t = Twitter(auth=oauth)
+    return t
 
 # Setup Logging
 
@@ -44,126 +46,54 @@ source = config.get('Content','source')
 
 keywords = config.get('Content','keywords').split(',')
 
-kw_re = [re.compile(r'\b%s\b' % kw,flags=re.I) for kw in keywords]
-
-def hash_word(match):
-    return '#' + match.group()
-
-def hash_line(line):
-    for kr in kw_re:
-        line = re.sub(kr, hash_word, line)
-
-    return line
-
 # number of bursts per chant
 num_bursts = int(config.get('Schedule','bursts'))
 
-class Chant:
-
-    lines = []
-    bursts = []
-    # lines per burst
-    lpb = 0
-
-    def __init__(self,text):
-        self.lines = text.split("\n")
-
-        if self.lines[-1] is "":
-            self.lines = self.lines[0:-1]
-
-        # lines per burst
-        self.lpb = int(math.ceil(float(len(self.lines)) / num_bursts))
-
-        self.bursts = [self.lines[i:i+self.lpb] for i 
-                       in xrange(0,len(self.lines),self.lpb)]
-
-        if len(self.bursts) < num_bursts:
-            self.bursts.append([])
-
-def prepare_chants(source):
-    """
-    prepare_chants(source) -> list of Chants
-
-    Read in the text from the source file and
-    return a list whose elements are 
-    """
-
-    chants = []
-
-    f = open(source)
-
-    text = ""
-
-    for line in f:
-        if re.match(r'^\s*$',line) is not None:
-            if text is not "":
-                chants.append(Chant(text))
-                text = ""
-        else:
-            # add hashtags where necessary
-            text += hash_line(line)
-
-    f.close()
-
-    return chants
-
-chants = prepare_chants(source)
-
-# Begin chanting
-
-# which chant to start with 
-chantburn = int(config.get('Schedule','chantburn'))
+# which day is the 'starting day' of the chanting
+startday = time.strptime(config.get('Schedule','startday'),"%m/%d/%y")
 
 # time between tweets in a burst
 beat = int(config.get('Schedule','beat'))
 
-# total duration of a chant
-duration = int(config.get('Schedule','duration'))
+def which_chant(chants):
+    start = datetime.fromtimestamp(time.mktime(startday)).toordinal()
+    today = date.today().toordinal()
 
-def compute_start():
-    start_time = dtime(*time.strptime(config.get('Schedule',
-                                                 'starttime'),"%H:%M")[3:5])
-    now = datetime.now()
+    chant_index = (today - start) % len(chants)
 
-    if now.time() < start_time:
-        start_day = now
-    else:
-        tomorrow = tomorrow = datetime.fromordinal(now.toordinal() + 1)
-        start_day = tomorrow
+    return chants[chant_index]
 
-    start = datetime.combine(start_day,start_time)
-    return start
+def main(argv=None):
+    t = get_twitter_client()
 
-def do_chant(chant):
+    import pdb;pdb.set_trace()
 
-    interval = duration / (len(chant.bursts) - 1)
-    rest = interval - chant.lpb * beat
+    argv = sys.argv
 
-    logger.debug("Interval: %d. Rest: %d." % (interval,rest))
+    #index of the burst
+    b = 0
+        
+    try:
+        b = int(argv[1])
+    except Exception as e:
+        print e
+    
+    #Reads the source file and parses it into a list of chants
+    chants = prepare_chants(source,num_bursts,keywords)
 
-    for burst in chant.bursts:
-        for line in burst:
-            t.statuses.update(status=line)
-            logger.debug(line)
-            time.sleep(beat)
+    chant = which_chant(chants)
 
-        logger.debug("(rest)")
-        time.sleep(rest)
+    burst = chant.bursts[b]
+    
+    for line in burst:
+        t.statuses.update(status=line)
+        print line
+        logger.debug(line)
+        time.sleep(beat)
 
-chants = itertools.cycle(chants)
 
-# burn in to appropriate starting chant
-for i in range(chantburn):
-    logger.debug("Burning in for %d." % chantburn)
-    chants.next()
+    return 0
 
-index = chantburn
 
-for chant in chants:
-    logger.debug("Computing start time")
-    start = compute_start()
-    wait = start - datetime.now()
-    logger.debug("Waiting for %s for next chant." % wait)
-    time.sleep(wait.total_seconds())
-    logger.debug("Beginning chant index %d" % index)
-    do_chant(chant)
+if  __name__ =='__main__':
+    main()
